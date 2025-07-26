@@ -1,0 +1,52 @@
+[
+  {
+    "rank": 1,
+    "symbol": "ITC.NS",
+    "confidence_score": 2.0,
+    "current_close": "409.40",
+    "predicted_close": "413.49",
+    "reason": "MACD bullish + EMA bullish",
+    "prediction_date": "2025-07-26",
+    "prediction_time": "18:53:32"
+  },
+  {
+    "rank": 2,
+    "symbol": "AXISBANK.NS",
+    "confidence_score": 2.0,
+    "current_close": "1086.10",
+    "predicted_close": "1096.96",
+    "reason": "MACD bullish + EMA bullish",
+    "prediction_date": "2025-07-26",
+    "prediction_time": "18:53:32"
+  },
+  {
+    "rank": 3,
+    "symbol": "SUNPHARMA.NS",
+    "confidence_score": 2.0,
+    "current_close": "1699.00",
+    "predicted_close": "1715.99",
+    "reason": "MACD bullish + EMA bullish",
+    "prediction_date": "2025-07-26",
+    "prediction_time": "18:53:32"
+  },
+  {
+    "rank": 4,
+    "symbol": "WIPRO.NS",
+    "confidence_score": 2.0,
+    "current_close": "259.20",
+    "predicted_close": "261.79",
+    "reason": "MACD bullish + EMA bullish",
+    "prediction_date": "2025-07-26",
+    "prediction_time": "18:53:32"
+  },
+  {
+    "rank": 5,
+    "symbol": "TCS.NS",
+    "confidence_score": 1.0,
+    "current_close": "3135.80",
+    "predicted_close": "3135.80",
+    "reason": "MACD bullish",
+    "prediction_date": "2025-07-26",
+    "prediction_time": "18:53:32"
+  }
+]

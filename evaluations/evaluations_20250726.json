@@ -1,0 +1,62 @@
+[
+  {
+    "rank": 1,
+    "symbol": "ITC.NS",
+    "confidence_score": 2.0,
+    "predicted_close": "413.49",
+    "actual_open": "3165.10",
+    "actual_close": "3148.00",
+    "actual_high": "3173.70",
+    "actual_low": "3140.00",
+    "result": "MISS",
+    "reason": "MACD bullish + EMA bullish"
+  },
+  {
+    "rank": 2,
+    "symbol": "AXISBANK.NS",
+    "confidence_score": 2.0,
+    "predicted_close": "1096.96",
+    "actual_open": "1086.10",
+    "actual_close": "1086.10",
+    "actual_high": "1101.00",
+    "actual_low": "1076.20",
+    "result": "HIT",
+    "reason": "MACD bullish + EMA bullish"
+  },
+  {
+    "rank": 3,
+    "symbol": "SUNPHARMA.NS",
+    "confidence_score": 2.0,
+    "predicted_close": "1715.99",
+    "actual_open": "1690.00",
+    "actual_close": "1699.00",
+    "actual_high": "1702.00",
+    "actual_low": "1682.20",
+    "result": "HIT",
+    "reason": "MACD bullish + EMA bullish"
+  },
+  {
+    "rank": 4,
+    "symbol": "WIPRO.NS",
+    "confidence_score": 2.0,
+    "predicted_close": "261.79",
+    "actual_open": "261.80",
+    "actual_close": "259.20",
+    "actual_high": "262.05",
+    "actual_low": "256.05",
+    "result": "HIT",
+    "reason": "MACD bullish + EMA bullish"
+  },
+  {
+    "rank": 5,
+    "symbol": "TCS.NS",
+    "confidence_score": 1.0,
+    "predicted_close": "3135.80",
+    "actual_open": "3140.00",
+    "actual_close": "3135.80",
+    "actual_high": "3156.90",
+    "actual_low": "3125.60",
+    "result": "HIT",
+    "reason": "MACD bullish"
+  }
+]

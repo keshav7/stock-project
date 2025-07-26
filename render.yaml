@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: stock-prediction-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api_server:app
+    envVars:
+      - key: NEWS_API_KEY
+        value: a9ce32b4eece45cdad109310c59be10d
+      - key: OPENAI_API_KEY
+        value: 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
+      - key: PYTHON_VERSION
+        value: 3.9.18 

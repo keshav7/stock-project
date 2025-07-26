@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+"""
+Morning Prediction Script - Runs at 8:30 AM IST on weekdays
+Generates stock predictions and sends via email
+"""
+
+import os
+import sys
+import json
+from datetime import datetime, timedelta
+import pandas as pd
+from email_sender import get_gmail_service, create_message, send_message
+import base64
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from data_fetcher import fetch_all_intraday, NIFTY_20
+from technical_analyzer import compute_indicators
+from news_analyzer import analyze_all_news
+from recommender import recommend_stocks
+import yfinance as yf
+import asyncio
+
+def safe_scalar(val):
+    """Convert pandas/numpy values to scalar safely."""
+    if hasattr(val, 'item'):
+        val = val.item() if hasattr(val, 'size') and val.size == 1 else None
+    if val is None or pd.isna(val):
+        return '-'
+    return f"{val:.2f}" if isinstance(val, (float, int)) else str(val)
+
+def get_today_close(symbol):
+    """Get today's closing price for a symbol."""
+    try:
+        df = yf.download(symbol, period='2d', interval='1d', progress=False)
+        if df.empty:
+            return None
+        return df['Close'].iloc[-1]
+    except Exception as e:
+        print(f"Error getting close price for {symbol}: {e}")
+        return None
+
+def predict_close(rule_confidence, close):
+    """Predict next day's closing price based on confidence score."""
+    if close is None or close == '-':
+        return '-'
+    try:
+        close = float(close)
+    except Exception:
+        return '-'
+    
+    if rule_confidence >= 2:
+        return f"{close * 1.01:.2f}"  # +1%
+    elif rule_confidence <= 0:
+        return f"{close * 0.99:.2f}"  # -1%
+    else:
+        return f"{close:.2f}"
+
+def generate_predictions():
+    """Generate stock predictions for the day."""
+    print("Fetching intraday data...")
+    intraday_data = fetch_all_intraday(NIFTY_20)
+    
+    print("Computing technical indicators...")
+    technical_scores = {symbol: compute_indicators(df) for symbol, df in intraday_data.items()}
+    
+    print("Analyzing news and sentiment...")
+    sentiment_scores = asyncio.run(analyze_all_news(NIFTY_20))
+    
+    print("Generating recommendations...")
+    recommendations = recommend_stocks(technical_scores, sentiment_scores)
+    
+    # Prepare predictions data
+    predictions = []
+    for idx, rec in enumerate(recommendations, 1):
+        symbol = rec['symbol']
+        close = safe_scalar(get_today_close(symbol))
+        pred_close = predict_close(rec['confidence_score'], close)
+        
+        prediction = {
+            'rank': idx,
+            'symbol': symbol,
+            'confidence_score': rec['confidence_score'],
+            'current_close': close,
+            'predicted_close': pred_close,
+            'reason': rec['reason'],
+            'prediction_date': datetime.now().strftime('%Y-%m-%d'),
+            'prediction_time': datetime.now().strftime('%H:%M:%S')
+        }
+        predictions.append(prediction)
+    
+    return predictions
+
+def save_predictions_to_file(predictions):
+    """Save predictions to a JSON file for later comparison."""
+    filename = f"predictions_{datetime.now().strftime('%Y%m%d')}.json"
+    
+    # Create predictions directory if it doesn't exist
+    os.makedirs('predictions', exist_ok=True)
+    filepath = os.path.join('predictions', filename)
+    
+    with open(filepath, 'w') as f:
+        json.dump(predictions, f, indent=2)
+    
+    print(f"Predictions saved to {filepath}")
+    return filepath
+
+def create_prediction_email_html(predictions):
+    """Create HTML email content for predictions."""
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Morning Stock Predictions</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
+            <h1 style="margin: 0; font-size: 28px; text-align: center;">🌅 Morning Stock Predictions</h1>
+            <p style="margin: 10px 0 0 0; text-align: center; font-size: 16px; opacity: 0.9;">Today's Top 5 Intraday Stock Picks</p>
+            <p style="margin: 5px 0 0 0; text-align: center; font-size: 14px; opacity: 0.8;">Generated at {current_time}</p>
+        </div>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #2c3e50; margin-top: 0;">📊 Today's Predictions</h2>
+            <p style="margin: 0;">Based on technical analysis and news sentiment analysis.</p>
+        </div>
+        
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0; font-family: Arial, sans-serif;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">#</th>
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Symbol</th>
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Confidence</th>
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Current Close</th>
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Predicted Close</th>
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+    
+    for pred in predictions:
+        confidence_color = '#d4edda' if pred['confidence_score'] >= 2 else '#fff3cd' if pred['confidence_score'] >= 1 else '#f8d7da'
+        html += f"""
+            <tr style="background-color: {'#f9f9f9' if pred['rank'] % 2 == 0 else 'white'};">
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: center; font-weight: bold;">{pred['rank']}</td>
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; color: #2c3e50;">{pred['symbol']}</td>
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: {confidence_color};">{pred['confidence_score']}</td>
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: right;">₹{pred['current_close']}</td>
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: {'#28a745' if pred['predicted_close'] != pred['current_close'] else '#6c757d'};">₹{pred['predicted_close']}</td>
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 12px;">{pred['reason']}</td>
+            </tr>
+        """
+    
+    html += """
+            </tbody>
+        </table>
+        
+        <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin-top: 30px;">
+            <h3 style="color: #2c3e50; margin-top: 0;">📈 Analysis Methodology</h3>
+            <ul style="margin: 0; padding-left: 20px;">
+                <li><strong>Technical Indicators:</strong> MACD, EMA, RSI, Bollinger Bands</li>
+                <li><strong>News Sentiment:</strong> Real-time news analysis and sentiment scoring</li>
+                <li><strong>Data Source:</strong> Yahoo Finance intraday data (5-minute intervals)</li>
+                <li><strong>Confidence Score:</strong> Combined technical and sentiment analysis (0-3 scale)</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+            <p style="margin: 0; color: #6c757d; font-size: 14px;">
+                Generated on: {current_time}<br>
+                <em>This analysis is for informational purposes only. Please consult with a financial advisor before making investment decisions.</em>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
+def send_prediction_email(predictions, recipient_email):
+    """Send prediction email."""
+    try:
+        service = get_gmail_service()
+        
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+        subject = f"Morning Stock Predictions - {current_time}"
+        
+        html_content = create_prediction_email_html(predictions)
+        
+        message = create_message('me', recipient_email, subject, html_content, is_html=True)
+        result = send_message(service, 'me', message)
+        
+        if result:
+            print(f"Prediction email sent successfully to {recipient_email}")
+            return True
+        else:
+            print("Failed to send prediction email")
+            return False
+            
+    except Exception as e:
+        print(f"Error sending prediction email: {e}")
+        return False
+
+def main():
+    """Main function for morning prediction."""
+    print("Starting morning prediction process...")
+    
+    # Set environment variables for API keys
+    os.environ['NEWS_API_KEY'] = 'a9ce32b4eece45cdad109310c59be10d'
+    os.environ['OPENAI_API_KEY'] = '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'
+    
+    # Temporarily disable weekend check for testing
+    # if datetime.now().weekday() >= 5:  # Saturday or Sunday
+    #     print("Weekend detected. Skipping prediction.")
+    #     return
+    
+    try:
+        # Generate predictions
+        predictions = generate_predictions()
+        
+        # Save predictions to file
+        save_predictions_to_file(predictions)
+        
+        # Send email (you can configure the recipient email here)
+        recipient_email = "gupkes@gmail.com"  # Already updated
+        send_prediction_email(predictions, recipient_email)
+        
+        print("Morning prediction process completed successfully!")
+        
+    except Exception as e:
+        print(f"Error in morning prediction process: {e}")
+        # You might want to send an error notification email here
+
+if __name__ == "__main__":
+    main() 
