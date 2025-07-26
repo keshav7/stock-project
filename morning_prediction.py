@@ -35,10 +35,19 @@ def safe_scalar(val):
 def get_today_close(symbol):
     """Get today's closing price for a symbol."""
     try:
-        df = yf.download(symbol, period='2d', interval='1d', progress=False)
+        # Use the improved data fetching method
+        from data_fetcher import fetch_daily_data
+        df = fetch_daily_data(symbol, days=5)  # Get 5 days to ensure we have recent data
+        
         if df.empty:
+            print(f"No data available for {symbol}")
             return None
-        return df['Close'].iloc[-1]
+        
+        # Get the most recent close price
+        latest_close = df['Close'].iloc[-1]
+        print(f"Latest close for {symbol}: {latest_close}")
+        return latest_close
+        
     except Exception as e:
         print(f"Error getting close price for {symbol}: {e}")
         return None
