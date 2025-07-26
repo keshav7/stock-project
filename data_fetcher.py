@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import pytz
 
-# Top 20 Nifty 50 stocks (sample, can be updated)
+# Updated Nifty 50 stocks with verified symbols
 NIFTY_20 = [
     'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
     'HINDUNILVR.NS', 'ITC.NS', 'LT.NS', 'SBIN.NS', 'BHARTIARTL.NS',
@@ -11,6 +11,27 @@ NIFTY_20 = [
     'MARUTI.NS', 'AXISBANK.NS', 'SUNPHARMA.NS', 'TITAN.NS',
     'ULTRACEMCO.NS', 'WIPRO.NS'
 ]
+
+# Simplified list with only the most reliable stocks
+RELIABLE_STOCKS = [
+    'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS'
+]
+
+# Alternative symbols to try if primary fails
+SYMBOL_ALTERNATIVES = {
+    'SBIN.NS': ['SBIN.NS', 'SBIN.BO'],
+    'BHARTIARTL.NS': ['BHARTIARTL.NS', 'BHARTIARTL.BO'],
+    'BAJFINANCE.NS': ['BAJFINANCE.NS', 'BAJFINANCE.BO'],
+    'KOTAKBANK.NS': ['KOTAKBANK.NS', 'KOTAKBANK.BO'],
+    'ASIANPAINT.NS': ['ASIANPAINT.NS', 'ASIANPAINT.BO'],
+    'HCLTECH.NS': ['HCLTECH.NS', 'HCLTECH.BO'],
+    'MARUTI.NS': ['MARUTI.NS', 'MARUTI.BO'],
+    'AXISBANK.NS': ['AXISBANK.NS', 'AXISBANK.BO'],
+    'SUNPHARMA.NS': ['SUNPHARMA.NS', 'SUNPHARMA.BO'],
+    'TITAN.NS': ['TITAN.NS', 'TITAN.BO'],
+    'ULTRACEMCO.NS': ['ULTRACEMCO.NS', 'ULTRACEMCO.BO'],
+    'WIPRO.NS': ['WIPRO.NS', 'WIPRO.BO']
+}
 
 def get_indian_date_range():
     """Get the proper date range for Indian market data."""
@@ -30,41 +51,73 @@ def get_indian_date_range():
     
     return start_date, end_date
 
+def try_multiple_symbols(symbol, period_days=60, interval='5m'):
+    """Try multiple symbol variations to get data."""
+    alternatives = SYMBOL_ALTERNATIVES.get(symbol, [symbol])
+    
+    for alt_symbol in alternatives:
+        try:
+            print(f"  Trying symbol: {alt_symbol}")
+            period = f"{period_days}d"
+            df = yf.download(alt_symbol, period=period, interval=interval, progress=False)
+            
+            if not df.empty:
+                print(f"  ✅ Success with {alt_symbol}: {len(df)} records")
+                df = df.reset_index()
+                return df, alt_symbol
+            else:
+                print(f"  ❌ No data for {alt_symbol}")
+                
+        except Exception as e:
+            print(f"  ❌ Error with {alt_symbol}: {e}")
+    
+    return pd.DataFrame(), None
+
 def fetch_intraday_data(symbol, period_days=60, interval='5m'):
     """
     Fetch 5-min interval data for the past `period_days` for a given stock symbol.
     Returns a pandas DataFrame.
     """
     try:
-        # Use period instead of specific dates for better reliability
-        period = f"{period_days}d"
-        df = yf.download(symbol, period=period, interval=interval, progress=False)
+        # Try multiple symbol variations
+        df, working_symbol = try_multiple_symbols(symbol, period_days, interval)
         
         if df.empty:
-            print(f"Warning: No data returned for {symbol}")
+            print(f"Warning: No data returned for {symbol} (tried all alternatives)")
             return pd.DataFrame()
         
-        df = df.reset_index()
         return df
     except Exception as e:
         print(f"Error fetching {symbol}: {e}")
         return pd.DataFrame()
 
-def fetch_daily_data(symbol, days=2):
+def fetch_daily_data(symbol, days=5):
     """
     Fetch daily data for a given stock symbol.
     Returns a pandas DataFrame.
     """
     try:
-        # Use period instead of specific dates
-        period = f"{days}d"
-        df = yf.download(symbol, period=period, interval='1d', progress=False)
+        # Try multiple symbol variations
+        alternatives = SYMBOL_ALTERNATIVES.get(symbol, [symbol])
         
-        if df.empty:
-            print(f"Warning: No daily data returned for {symbol}")
-            return pd.DataFrame()
+        for alt_symbol in alternatives:
+            try:
+                print(f"  Trying daily data for: {alt_symbol}")
+                period = f"{days}d"
+                df = yf.download(alt_symbol, period=period, interval='1d', progress=False)
+                
+                if not df.empty:
+                    print(f"  ✅ Daily data success with {alt_symbol}: {len(df)} records")
+                    return df
+                else:
+                    print(f"  ❌ No daily data for {alt_symbol}")
+                    
+            except Exception as e:
+                print(f"  ❌ Error with daily data for {alt_symbol}: {e}")
         
-        return df
+        print(f"Warning: No daily data returned for {symbol} (tried all alternatives)")
+        return pd.DataFrame()
+        
     except Exception as e:
         print(f"Error fetching daily data for {symbol}: {e}")
         return pd.DataFrame()
@@ -74,21 +127,48 @@ def fetch_all_intraday(symbols=NIFTY_20, period_days=60, interval='5m'):
     Fetch intraday data for all symbols. Returns a dict of DataFrames.
     """
     data = {}
+    successful_count = 0
+    
+    print(f"Fetching intraday data for {len(symbols)} stocks...")
+    
     for symbol in symbols:
         try:
+            print(f"\n📊 Processing: {symbol}")
             df = fetch_intraday_data(symbol, period_days, interval)
             if not df.empty:
                 data[symbol] = df
+                successful_count += 1
                 print(f"✅ Successfully fetched {symbol}: {len(df)} records")
             else:
                 print(f"❌ No data for {symbol}")
         except Exception as e:
             print(f"Error fetching {symbol}: {e}")
-    return data 
+    
+    print(f"\n📈 Summary: {successful_count}/{len(symbols)} stocks fetched successfully")
+    return data
+
+def test_stock_availability():
+    """Test which stocks are available."""
+    print("🔍 Testing Stock Availability")
+    print("=" * 50)
+    
+    test_symbols = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS']
+    
+    for symbol in test_symbols:
+        print(f"\nTesting: {symbol}")
+        df = fetch_daily_data(symbol, days=5)
+        if not df.empty:
+            print(f"✅ Available: {symbol}")
+            print(f"   Latest close: {df['Close'].iloc[-1]}")
+        else:
+            print(f"❌ Not available: {symbol}")
 
 if __name__ == "__main__":
+    print("Testing stock data fetching...")
+    test_stock_availability()
+    
+    print("\n" + "=" * 50)
     print("Fetching intraday data for Nifty 20 stocks...")
-    print(f"Fetching data for {len(NIFTY_20)} stocks...")
     
     # Fetch data for all stocks
     data = fetch_all_intraday()

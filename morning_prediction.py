@@ -68,39 +68,131 @@ def predict_close(rule_confidence, close):
     else:
         return f"{close:.2f}"
 
-def generate_predictions():
-    """Generate stock predictions for the day."""
-    print("Fetching intraday data...")
-    intraday_data = fetch_all_intraday(NIFTY_20)
-    
-    print("Computing technical indicators...")
-    technical_scores = {symbol: compute_indicators(df) for symbol, df in intraday_data.items()}
-    
-    print("Analyzing news and sentiment...")
-    sentiment_scores = asyncio.run(analyze_all_news(NIFTY_20))
-    
-    print("Generating recommendations...")
-    recommendations = recommend_stocks(technical_scores, sentiment_scores)
-    
-    # Prepare predictions data
-    predictions = []
-    for idx, rec in enumerate(recommendations, 1):
-        symbol = rec['symbol']
-        close = safe_scalar(get_today_close(symbol))
-        pred_close = predict_close(rec['confidence_score'], close)
+def get_technical_score(symbol):
+    """Get technical analysis score for a symbol."""
+    try:
+        from data_fetcher import fetch_intraday_data
+        from technical_analyzer import compute_indicators
         
-        prediction = {
-            'rank': idx,
-            'symbol': symbol,
-            'confidence_score': rec['confidence_score'],
-            'current_close': close,
-            'predicted_close': pred_close,
-            'reason': rec['reason'],
-            'prediction_date': datetime.now().strftime('%Y-%m-%d'),
-            'prediction_time': datetime.now().strftime('%H:%M:%S')
-        }
-        predictions.append(prediction)
+        # Fetch intraday data
+        df = fetch_intraday_data(symbol, period_days=30, interval='5m')
+        
+        if df.empty:
+            print(f"  No intraday data for {symbol}, using default score")
+            return 0.5  # Neutral score
+        
+        # Compute technical indicators
+        indicators = compute_indicators(df)
+        
+        # Calculate a simple technical score based on indicators
+        score = 0.5  # Base neutral score
+        
+        # Adjust based on RSI
+        if 'rsi' in indicators and not pd.isna(indicators['rsi']):
+            rsi = indicators['rsi']
+            if rsi < 30:  # Oversold
+                score += 0.2
+            elif rsi > 70:  # Overbought
+                score -= 0.2
+        
+        # Adjust based on MACD
+        if 'macd' in indicators and not pd.isna(indicators['macd']):
+            macd = indicators['macd']
+            if macd > 0:  # Positive MACD
+                score += 0.1
+            else:  # Negative MACD
+                score -= 0.1
+        
+        # Ensure score is between 0 and 1
+        score = max(0, min(1, score))
+        
+        print(f"  Technical score for {symbol}: {score:.2f}")
+        return score
+        
+    except Exception as e:
+        print(f"  Error calculating technical score for {symbol}: {e}")
+        return 0.5  # Default neutral score
+
+def get_news_sentiment(symbol):
+    """Get news sentiment score for a symbol."""
+    try:
+        from news_analyzer import analyze_news_sentiment
+        
+        # Get company name from symbol
+        company_name = symbol.replace('.NS', '').replace('.BO', '')
+        
+        # Analyze news sentiment
+        sentiment_score = analyze_news_sentiment(company_name)
+        
+        print(f"  Sentiment score for {symbol}: {sentiment_score:.2f}")
+        return sentiment_score
+        
+    except Exception as e:
+        print(f"  Error calculating sentiment score for {symbol}: {e}")
+        return 0.5  # Default neutral score
+
+def generate_predictions():
+    """Generate predictions for all stocks."""
+    # Use reliable stocks instead of all NIFTY_20
+    from data_fetcher import RELIABLE_STOCKS
     
+    predictions = []
+    
+    print("🔮 Generating predictions for reliable stocks...")
+    
+    for symbol in RELIABLE_STOCKS:
+        try:
+            print(f"\n📊 Processing: {symbol}")
+            
+            # Get current close price
+            current_close = get_today_close(symbol)
+            if current_close is None:
+                print(f"❌ Skipping {symbol} - no current price data")
+                continue
+            
+            # Get technical analysis
+            technical_score = get_technical_score(symbol)
+            
+            # Get news sentiment
+            sentiment_score = get_news_sentiment(symbol)
+            
+            # Calculate confidence score
+            confidence_score = (technical_score + sentiment_score) / 2
+            
+            # Predict close price (simple prediction based on current price and confidence)
+            predicted_close = current_close * (1 + (confidence_score - 0.5) * 0.02)  # ±2% range
+            
+            # Determine recommendation
+            if confidence_score > 0.6:
+                recommendation = "BUY"
+                reason = "Strong technical indicators and positive sentiment"
+            elif confidence_score < 0.4:
+                recommendation = "SELL"
+                reason = "Weak technical indicators and negative sentiment"
+            else:
+                recommendation = "HOLD"
+                reason = "Mixed signals, maintain current position"
+            
+            prediction = {
+                'symbol': symbol,
+                'current_close': safe_scalar(current_close),
+                'predicted_close': safe_scalar(predicted_close),
+                'confidence_score': round(confidence_score, 2),
+                'technical_score': round(technical_score, 2),
+                'sentiment_score': round(sentiment_score, 2),
+                'recommendation': recommendation,
+                'reason': reason,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            predictions.append(prediction)
+            print(f"✅ Generated prediction for {symbol}: {recommendation} (Confidence: {confidence_score:.2f})")
+            
+        except Exception as e:
+            print(f"❌ Error generating prediction for {symbol}: {e}")
+            continue
+    
+    print(f"\n📈 Generated {len(predictions)} predictions successfully")
     return predictions
 
 def save_predictions_to_file(predictions):
