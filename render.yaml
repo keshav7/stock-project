@@ -3,7 +3,7 @@ services:
     name: stock-prediction-api
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements_super_minimal.txt
     startCommand: gunicorn api_server:app
     envVars:
       - key: NEWS_API_KEY
