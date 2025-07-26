@@ -30,6 +30,7 @@ Make sure your repository contains these essential files:
    **Environment Variables:**
    - `NEWS_API_KEY` = `a9ce32b4eece45cdad109310c59be10d`
    - `OPENAI_API_KEY` = `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`
+   - `PYTHON_VERSION` = `3.11.7`
 
 5. **Click "Create Web Service"**
 
@@ -52,6 +53,7 @@ The API requires these environment variables:
 |----------|-------|-------------|
 | `NEWS_API_KEY` | `a9ce32b4eece45cdad109310c59be10d` | News API key for sentiment analysis |
 | `OPENAI_API_KEY` | `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` | OpenAI API key for AI analysis |
+| `PYTHON_VERSION` | `3.11.7` | Python version (recommended for compatibility) |
 | `PORT` | Auto-assigned by Render | Port for the web service |
 
 ### Build Configuration
@@ -66,7 +68,80 @@ pip install -r requirements.txt
 gunicorn api_server:app
 ```
 
-**Python Version:** 3.9.18
+**Python Version:** 3.11.7 (recommended for stability)
+
+## 🚨 Troubleshooting
+
+### Common Issues:
+
+#### 1. Setuptools Import Error
+**Error:** `Cannot import 'setuptools.build_meta'`
+
+**Solutions:**
+1. **Use Python 3.11:** Set `PYTHON_VERSION=3.11.7` in environment variables
+2. **Use stable requirements:** Rename `requirements_stable.txt` to `requirements.txt`
+3. **Alternative build command:**
+   ```bash
+   pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+   ```
+
+#### 2. Build Failures
+- Check `requirements.txt` is complete
+- Verify all Python files are in repository
+- Use Python 3.11 instead of 3.13
+
+#### 3. Runtime Errors
+- Check Render logs in dashboard
+- Verify environment variables are set
+- Monitor application logs
+
+#### 4. Memory Issues
+- Free tier has 512MB RAM limit
+- Consider upgrading to paid plan for more resources
+- Optimize memory usage in your application
+
+#### 5. Timeout Issues
+- Free tier has 30-second timeout
+- Long-running operations should be async
+- Consider using background workers for heavy tasks
+
+### Alternative Requirements Files
+
+If you encounter compatibility issues, try these alternatives:
+
+1. **Use stable versions:**
+   ```bash
+   # Rename requirements_stable.txt to requirements.txt
+   mv requirements_stable.txt requirements.txt
+   ```
+
+2. **Use minimal requirements:**
+   ```bash
+   # Create minimal requirements.txt
+   echo "Flask==2.2.5
+   Flask-CORS==4.0.0
+   gunicorn==20.1.0
+   yfinance==0.2.18
+   pandas==1.5.3
+   numpy==1.24.3
+   requests==2.28.2
+   openai==0.27.8
+   google-auth==2.17.3
+   google-api-python-client==2.86.0" > requirements.txt
+   ```
+
+### Debug Commands:
+
+```bash
+# Check if service is running
+curl https://your-app-name.onrender.com/health
+
+# Test prediction endpoint
+curl -X POST https://your-app-name.onrender.com/predict
+
+# Check API status
+curl https://your-app-name.onrender.com/status
+```
 
 ## 📊 Monitoring and Logs
 
@@ -124,43 +199,6 @@ Once deployed, your API will be available at:
 4. **HTTPS Only:**
    - Render automatically provides HTTPS
    - Force HTTPS redirects in your application
-
-## 🚨 Troubleshooting
-
-### Common Issues:
-
-1. **Build Failures:**
-   - Check `requirements.txt` for correct dependencies
-   - Verify Python version compatibility
-   - Check build logs for specific errors
-
-2. **Runtime Errors:**
-   - Monitor application logs
-   - Check environment variables are set correctly
-   - Verify API keys are valid
-
-3. **Memory Issues:**
-   - Free tier has 512MB RAM limit
-   - Consider upgrading to paid plan for more resources
-   - Optimize memory usage in your application
-
-4. **Timeout Issues:**
-   - Free tier has 30-second timeout
-   - Long-running operations should be async
-   - Consider using background workers for heavy tasks
-
-### Debug Commands:
-
-```bash
-# Check if service is running
-curl https://your-app-name.onrender.com/health
-
-# Test prediction endpoint
-curl -X POST https://your-app-name.onrender.com/predict
-
-# Check API status
-curl https://your-app-name.onrender.com/status
-```
 
 ## 📈 Scaling
 
