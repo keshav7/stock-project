@@ -7,6 +7,7 @@ Compares morning predictions with actual day's performance and sends results via
 import os
 import sys
 import json
+import logging
 from datetime import datetime, timedelta
 import pandas as pd
 from email_sender import get_gmail_service, create_message, send_message
@@ -14,6 +15,17 @@ import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import yfinance as yf
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('evening_evaluation.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def safe_scalar(val):
     """Convert pandas/numpy values to scalar safely."""
@@ -252,6 +264,43 @@ def save_evaluation_results(evaluations):
     
     print(f"Evaluation results saved to {filepath}")
     return filepath
+
+def evaluate_predictions():
+    """Evaluate predictions for the current day."""
+    logger.info("🌅 Starting evening evaluation process...")
+    
+    # Check if it's a weekday (Monday = 0, Sunday = 6)
+    if datetime.now().weekday() >= 5:  # Saturday or Sunday
+        logger.info("📅 Weekend detected. Skipping evaluation.")
+        return []
+    
+    try:
+        # Load today's predictions
+        logger.info("📂 Loading today's predictions...")
+        predictions = load_predictions_from_file()
+        
+        if predictions is None:
+            logger.warning("⚠️ No predictions found for today. Skipping evaluation.")
+            return []
+        
+        logger.info(f"✅ Loaded {len(predictions)} predictions for evaluation")
+        
+        # Evaluate predictions
+        logger.info("📊 Evaluating predictions...")
+        evaluations = evaluate_all_predictions(predictions)
+        
+        # Save evaluation results
+        logger.info("💾 Saving evaluation results...")
+        save_evaluation_results(evaluations)
+        
+        logger.info("✅ Evening evaluation process completed successfully!")
+        return evaluations
+        
+    except Exception as e:
+        logger.error(f"❌ Error in evening evaluation process: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return []
 
 def main():
     """Main function for evening evaluation."""

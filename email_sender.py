@@ -181,6 +181,27 @@ def create_html_table(recommendations):
     
     return html
 
+def send_email(recipient_email, subject, html_content):
+    """Send an email with the given content."""
+    try:
+        # Get Gmail service
+        service = get_gmail_service()
+        
+        # Create and send message
+        message = create_message('me', recipient_email, subject, html_content, is_html=True)
+        result = send_message(service, 'me', message)
+        
+        if result:
+            print(f"Email sent successfully to {recipient_email}")
+            return result.get('id', 'unknown')
+        else:
+            print("Failed to send email")
+            return None
+            
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return None
+
 def send_stock_analysis_results(recipient_email):
     """Send stock analysis results via email."""
     try:
